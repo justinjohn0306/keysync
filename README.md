@@ -29,7 +29,7 @@
     &nbsp;&nbsp;&nbsp;
     <a href="https://huggingface.co/spaces/toninio19/keysync-demo"><img src=https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace-Demo-yellow></a>
     &nbsp;&nbsp;&nbsp;  
-    <a href=""><img src="https://img.shields.io/badge/Paper-Arxiv-red"></a>
+    <a href="https://arxiv.org/abs/2505.00497"><img src="https://img.shields.io/badge/Paper-Arxiv-red"></a>
 </div>
 
 ## 📋 Table of Contents
@@ -232,7 +232,15 @@ Once installed, you can use the LipScore class in `evaluation/lipscore.py` to ev
 If you use KeySync in your research, please cite our paper:
 
 ```bibtex
-
+@misc{bigata2025keysyncrobustapproachleakagefree,
+      title={KeySync: A Robust Approach for Leakage-free Lip Synchronization in High Resolution}, 
+      author={Antoni Bigata and Rodrigo Mira and Stella Bounareli and Michał Stypułkowski and Konstantinos Vougioukas and Stavros Petridis and Maja Pantic},
+      year={2025},
+      eprint={2505.00497},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2505.00497}, 
+}
 ```
 
 ## Acknowledgements
