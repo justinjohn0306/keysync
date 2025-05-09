@@ -562,9 +562,9 @@ def sample_keyframes(
     """
     if scale is not None:
         model_keyframes.sampler.guider.set_scale(scale)
-    # samples_list = []
+    samples_list = []
     samples_z_list = []
-    # samples_x_list = []
+    samples_x_list = []
 
     for i in range(audio_list.shape[0]):
         H, W = condition.shape[-2:]
@@ -658,37 +658,38 @@ def sample_keyframes(
             samples_z = model_keyframes.sampler(
                 denoiser, video, cond=c, uc=uc, strength=strength
             )
+            samples_x = model_keyframes.decode_first_stage(samples_z)
             samples_z_list.append(samples_z)
-            # samples_x_list.append(samples_x)
-            # samples = torch.clamp((samples_x + 1.0) / 2.0, min=0.0, max=1.0)
-            # samples_list.append(samples)
+            samples_x_list.append(samples_x)
+            samples = torch.clamp((samples_x + 1.0) / 2.0, min=0.0, max=1.0)
+            samples_list.append(samples)
 
             video = None
 
-    # samples = (
-    #     torch.concat(samples_list)[:-added_frames]
-    #     if added_frames > 0
-    #     else torch.concat(samples_list)
-    # )
+    samples = (
+        torch.concat(samples_list)[:-added_frames]
+        if added_frames > 0
+        else torch.concat(samples_list)
+    )
     samples_z = (
         torch.concat(samples_z_list)[:-added_frames]
         if added_frames > 0
         else torch.concat(samples_z_list)
     )
-    # samples_x = (
-    #     torch.concat(samples_x_list)[:-added_frames]
-    #     if added_frames > 0
-    #     else torch.concat(samples_x_list)
-    # )
+    samples_x = (
+        torch.concat(samples_x_list)[:-added_frames]
+        if added_frames > 0
+        else torch.concat(samples_x_list)
+    )
 
-    return samples_z
+    return samples_z, samples_x
 
 
 @torch.inference_mode()
 def sample_interpolation(
     model: Any,
     samples_z: torch.Tensor,
-    # samples_x: torch.Tensor,
+    samples_x: torch.Tensor,
     audio_interpolation_list: List[torch.Tensor],
     gt_chunks: List[torch.Tensor],
     masks_chunks: List[torch.Tensor],
@@ -739,28 +740,28 @@ def sample_interpolation(
 
     # Creating condition for interpolation model. We need to create a list of inputs, each input is  [first, last]
     # The first and last are the first and last frames of the interpolation
-    # interpolation_cond_list = []
+    interpolation_cond_list = []
     interpolation_cond_list_emb = []
 
-    # samples_x = [sample for i, sample in zip(to_remove, samples_x) if not i]
+    samples_x = [sample for i, sample in zip(to_remove, samples_x) if not i]
     samples_z = [sample for i, sample in zip(to_remove, samples_z) if not i]
 
     for i in range(0, len(samples_z) - 1, overlap if overlap > 0 else 2):
-        # interpolation_cond_list.append(
-        #     torch.stack([samples_x[i], samples_x[i + 1]], dim=1)
-        # )
+        interpolation_cond_list.append(
+            torch.stack([samples_x[i], samples_x[i + 1]], dim=1)
+        )
         interpolation_cond_list_emb.append(
             torch.stack([samples_z[i], samples_z[i + 1]], dim=1)
         )
 
-    # condition = torch.stack(interpolation_cond_list).to(device)
+    condition = torch.stack(interpolation_cond_list).to(device)
     audio_cond = torch.stack(audio_interpolation_list).to(device)
     embbedings = torch.stack(interpolation_cond_list_emb).to(device)
 
     gt_chunks = torch.stack(gt_chunks).to(device)
     masks_chunks = torch.stack(masks_chunks).to(device)
 
-    H, W = 512, 512
+    H, W = condition.shape[-2:]
     F = 8
     C = 4
     shape = (num_frames * audio_cond.shape[0], C, H // F, W // F)
@@ -768,7 +769,7 @@ def sample_interpolation(
     value_dict: Dict[str, Any] = {}
     value_dict["fps_id"] = fps_id
     value_dict["cond_aug"] = cond_aug
-    # value_dict["cond_frames_without_noise"] = condition
+    value_dict["cond_frames_without_noise"] = condition
 
     value_dict["cond_frames"] = embbedings
     value_dict["cond_aug"] = cond_aug
@@ -1224,7 +1225,7 @@ def sample(
         chunk_masks_interpolation = masks_interpolation[start_idx:end_idx]
         gt_interpolation_chunks = gt_interpolation[start_idx:end_idx]
 
-        samples_z = sample_keyframes(
+        samples_z, samples_x = sample_keyframes(
             model_keyframes,
             chunk_audio_cond,
             chunk_gt_keyframes,
@@ -1244,16 +1245,16 @@ def sample(
         )
 
         if last_frame_x is not None:
-            # samples_x = torch.cat([last_frame_x.unsqueeze(0), samples_x], axis=0)
+            samples_x = torch.cat([last_frame_x.unsqueeze(0), samples_x], axis=0)
             samples_z = torch.cat([last_frame_z.unsqueeze(0), samples_z], axis=0)
 
-        # last_frame_x = samples_x[-1]
+        last_frame_x = samples_x[-1]
         last_frame_z = samples_z[-1]
 
         vid = sample_interpolation(
             model,
             samples_z,
-            # samples_x,
+            samples_x,
             audio_interpolation_list_chunk,
             gt_interpolation_chunks,
             chunk_masks_interpolation,
