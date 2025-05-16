@@ -990,7 +990,7 @@ def sample(
 
     torch.manual_seed(seed)
 
-    video = read_video(video_path, output_format="TCHW")[0]
+    video = read_video(video_path, pts_unit="sec", output_format="TCHW")[0]
 
     h, w = video.shape[2:]
     original_len = video.shape[0]
